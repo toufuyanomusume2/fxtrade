@@ -1,0 +1,840 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>トレードノート 期日比較</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#F3F5F8; --surface:#FFFFFF; --sunk:#EBEEF3; --ink:#172033; --muted:#5E6B80; --line:#DCE1EA;
+  --accent:#2757C9; --accent-soft:#E3EAFB; --profit:#11806A; --profit-soft:#DDF2EC; --loss:#CC3A43; --loss-soft:#FBE3E4;
+  --warn:#9A6A00; --warn-soft:#FBF0D5;
+  --sans:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;--bg:#0E131B;--surface:#151C27;--sunk:#1B2431;--ink:#E6EAF1;--muted:#94A1B5;--line:#2A3445;
+  --accent:#86A7F6;--accent-soft:#1E2B47;--profit:#3CC4A5;--profit-soft:#15302B;--loss:#F2777E;--loss-soft:#3A1D22;--warn:#E7B84E;--warn-soft:#352B14;}}
+:root[data-theme="dark"]{
+  color-scheme:dark;--bg:#0E131B;--surface:#151C27;--sunk:#1B2431;--ink:#E6EAF1;--muted:#94A1B5;--line:#2A3445;
+  --accent:#86A7F6;--accent-soft:#1E2B47;--profit:#3CC4A5;--profit-soft:#15302B;--loss:#F2777E;--loss-soft:#3A1D22;--warn:#E7B84E;--warn-soft:#352B14;}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.6;padding-inline:16px;padding-block:0 48px}
+.wrap{max-width:1240px;margin:0 auto}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.pos{color:var(--profit)} .neg{color:var(--loss)}
+header.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding-block:20px 12px}
+.brand{display:flex;align-items:baseline;gap:12px}
+.brand h1{font-size:22px;font-weight:700;margin:0;letter-spacing:.02em}
+.brand span{color:var(--muted);font-size:12px}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button,.btn{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;padding:6px 12px;cursor:pointer;min-height:34px}
+button:hover{border-color:var(--accent)}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--surface);font-weight:500}
+button.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+button.danger{color:var(--loss);border-color:var(--loss)}
+.status{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;background:var(--sunk)}
+.status i{width:7px;height:7px;border-radius:50%;background:var(--muted);display:inline-block}
+.status.ok i{background:var(--profit)} .status.busy i{background:var(--warn)} .status.err i{background:var(--loss)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:16px}
+.kpi{background:var(--surface);padding:12px 16px}
+.kpi b{display:block;font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.06em}
+.kpi .v{font-family:var(--mono);font-size:22px;font-weight:500;font-variant-numeric:tabular-nums}
+.kpi small{color:var(--muted);font-size:12px}
+nav.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+nav.tabs button{border:none;border-bottom:2px solid transparent;border-radius:0;background:none;padding:8px 16px;color:var(--muted);font-size:14px}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:700}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;padding:4px 10px;border-radius:99px;min-height:28px}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.hint{color:var(--muted);font-size:12px}
+.tablebox{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px;max-height:70vh}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:left}
+th{position:sticky;top:0;background:var(--sunk);font-weight:500;font-size:12px;color:var(--muted);z-index:1}
+td.r,th.r{text-align:right}
+td.c,th.c{text-align:center}
+tr.dayend td{border-bottom:2px solid var(--line)}
+tbody tr:hover td{background:var(--accent-soft)}
+tr.clickable{cursor:pointer}
+.tag{font-size:11px;padding:1px 7px;border-radius:4px;font-weight:500}
+.tag.buy{background:var(--profit-soft);color:var(--profit)} .tag.sell{background:var(--loss-soft);color:var(--loss)}
+.rule{display:inline-flex;width:24px;height:24px;border-radius:50%;align-items:center;justify-content:center;font-weight:700}
+.rule.oo{background:var(--profit);color:var(--surface)} .rule.o{background:var(--profit-soft);color:var(--profit)} .rule.x{background:var(--loss-soft);color:var(--loss)}
+td.auto{background:color-mix(in srgb,var(--accent-soft) 45%,transparent)}
+td.manual{background:color-mix(in srgb,var(--warn-soft) 55%,transparent)}
+select.sma{font:inherit;font-size:13px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--ink);padding:2px 4px;min-width:52px}
+select.sma.up{color:var(--profit);font-weight:700} select.sma.dn{color:var(--loss);font-weight:700}
+input.memo{font:inherit;font-size:13px;width:340px;max-width:60vw;border:1px solid transparent;background:transparent;color:var(--ink);padding:3px 6px;border-radius:4px}
+input.memo:hover,input.memo:focus{border-color:var(--line);background:var(--surface)}
+.del{color:var(--muted);border:none;background:none;min-height:0;padding:2px 6px}
+.del.armed{color:var(--surface);background:var(--loss);border-radius:4px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:16px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;min-width:0}
+.panel h2{font-size:15px;margin:0 0 4px}
+.panel p.sub{margin:0 0 12px;color:var(--muted);font-size:12px}
+.cmp td,.cmp th{padding:7px 10px}
+.cmp tbody th{position:static;background:none;color:var(--ink);font-weight:500;font-size:13px}
+.verdict{margin-top:12px;padding:10px 12px;border-radius:6px;background:var(--sunk);font-size:13px}
+.howto{font-size:13px;color:var(--muted);margin:0;padding-left:1.2em;display:grid;gap:4px}
+svg text{fill:var(--muted);font-family:var(--mono);font-size:10px}
+dialog{border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:0;width:min(640px,calc(100vw - 32px))}
+dialog::backdrop{background:rgb(10 15 25 / .45)}
+dialog form{padding:20px;display:grid;gap:14px}
+dialog h3{margin:0;font-size:16px}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+label.f{display:grid;gap:3px;font-size:12px;color:var(--muted)}
+label.f input,label.f select,textarea{font:inherit;font-size:14px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+textarea{width:100%;min-height:160px;font-family:var(--mono);font-size:12px}
+.dlg-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.banner{padding:10px 14px;border-radius:8px;background:var(--warn-soft);color:var(--ink);margin-bottom:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.err{color:var(--loss);font-size:12px}
+.pc-ctrl{display:grid;gap:14px;margin-bottom:16px}
+.pc-row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.pc-row label.f{min-width:0}
+label.f input[type=date]{min-width:0}
+.pc-periods{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:10px}
+.pc-period{display:grid;gap:6px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.pc-period b{font-size:12px;font-weight:500;color:var(--muted)}
+.pc-period .dates{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.pc-period input{font:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 6px;flex:1;min-width:130px}
+.pc-period .cnt{font-size:12px;color:var(--muted)}
+.pc-check{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);min-height:34px}
+.pc-img{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px;overflow-x:auto}
+.pc-img img{display:block;width:100%;max-width:1000px;height:auto;margin:0 auto}
+@media (max-width:560px){.kpi .v{font-size:18px}.brand span{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><h1>トレードノート</h1><span>取引履歴・検証・集計</span></div>
+    <div class="actions">
+      <span id="status" class="status"><i></i><span>読み込み中…</span></span>
+      <button id="btnExport" type="button">Excelに書き出し</button>
+    </div>
+  </header>
+  <div id="banner" class="banner" hidden>
+    <span>前回保存できなかった変更が残っています。</span>
+    <span class="actions"><button id="btnRestore" type="button" class="primary">変更を戻す</button><button id="btnDiscard" type="button">破棄</button></span>
+  </div>
+  <section class="kpis" id="kpis"></section>
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-hist" aria-selected="true" data-tab="hist">取引履歴</button>
+    <button role="tab" id="tab-ver" aria-selected="false" data-tab="ver">検証</button>
+    <button role="tab" id="tab-sum" aria-selected="false" data-tab="sum">集計</button>
+    <button role="tab" id="tab-period" aria-selected="false" data-tab="period">期日指定集計</button>
+  </nav>
+
+  <section id="pane-hist">
+    <div class="bar">
+      <div class="chips" id="symChips"></div>
+      <div class="actions">
+        <button id="btnPaste" type="button">Excelから貼り付け</button>
+        <button id="btnAdd" type="button" class="primary">＋ 取引を追加</button>
+      </div>
+    </div>
+    <div class="tablebox"><table id="histTable"></table></div>
+    <p class="hint">行をクリックすると編集できます。日別決済合計は決済日ごとに最後の行に表示されます。</p>
+  </section>
+
+  <section id="pane-ver" hidden>
+    <div class="bar">
+      <div class="chips" id="verChips"></div>
+      <span class="hint" id="verProgress"></span>
+    </div>
+    <div class="tablebox"><table id="verTable"></table></div>
+    <p class="hint">青い列は取引履歴から自動計算、黄色い列（20SMA・15M待った・メモ）を入力します。ルール合致は取引方向（買＝上、売＝下）と比べて自動判定します。◎＝4H・1H・15Mすべてそろう、○＝1H・15Mがそろう、×＝それ以外。1Hと15Mを入れると判定されます。</p>
+  </section>
+
+  <section id="pane-sum" hidden>
+    <div class="grid2">
+      <div class="panel">
+        <h2>ルール判定 × 成績</h2>
+        <p class="sub">◎＝4H・1H・15Mすべて取引方向、○＝1H・15Mが取引方向、×＝それ以外。1Hと15Mを入力した取引が対象です</p>
+        <div style="overflow-x:auto"><table class="cmp" id="cmpTable"></table></div>
+        <div class="verdict" id="verdict"></div>
+      </div>
+      <div class="panel">
+        <h2>日別損益</h2>
+        <p class="sub">棒＝その日の決済合計（円）、線＝累計</p>
+        <div id="dayChart"></div>
+      </div>
+      <div class="panel">
+        <h2>通貨ペア別</h2>
+        <p class="sub">全取引</p>
+        <div style="overflow-x:auto"><table class="cmp" id="symTable"></table></div>
+      </div>
+      <div class="panel">
+        <h2>使い方</h2>
+        <ol class="howto">
+          <li>「取引履歴」で取引を追加します。Excelの取引履歴シートからA〜K列（約定日時〜損益）をコピーして「Excelから貼り付け」でまとめて入れられます。</li>
+          <li>pips・損切り幅・利確幅・日別合計は自動で計算されます。</li>
+          <li>「検証」でTradingViewのバーリプレイを見ながら4H/1H/15Mの20SMAの向きを選びます。◎○×は自動判定です。</li>
+          <li>◎・○の成績が×を上回っていれば、手法どおりの取引が勝っていることになります。</li>
+          <li>変更は数秒後に自動で保存されます。「Excelに書き出し」で3シートの .xlsx をいつでも取り出せます。</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+  <section id="pane-period" hidden>
+    <div class="panel pc-ctrl">
+      <div class="pc-row">
+        <label class="f">比較する数<select id="pc_n"><option value="2">2期間</option><option value="3" selected>3期間</option><option value="4">4期間</option><option value="5">5期間</option></select></label>
+        <label class="f">通貨ペア<select id="pc_sym"><option value="all">すべて</option></select></label>
+        <label class="f">大負けの基準（円以下）<input id="pc_big" inputmode="numeric" value="-150" style="width:120px"></label>
+        <label class="pc-check"><input type="checkbox" id="pc_color" checked> 前の期間と比べて色分けする</label>
+      </div>
+      <div class="pc-periods" id="pc_periods"></div>
+      <div class="pc-row">
+        <label class="f" style="flex:1 1 260px">表のタイトル<input id="pc_title" value="検証を始める前と後の比較"></label>
+        <label class="f" style="flex:1 1 260px">サブタイトル<input id="pc_sub" value="◎＝3本そろう、○＝1H・15Mそろう、×＝それ以外"></label>
+      </div>
+      <label class="f">メモ（画像の一番下に入ります。空欄なら件数の注意書きだけ入ります）<input id="pc_note" placeholder="例：損切り幅は8件すべてで利確幅より狭く、最大の負けが−150円に収まった。"></label>
+      <div class="pc-row" style="justify-content:space-between">
+        <span class="hint">期間は決済日で絞り込みます。色は、その期間より前の列の平均と比べて付けます。</span>
+        <button type="button" class="primary" id="pc_save">画像を保存（PNG）</button>
+      </div>
+    </div>
+    <div class="pc-img"><img id="pc_img" alt="期日指定集計の比較表"></div>
+  </section>
+</div>
+
+<dialog id="dlgTrade">
+  <form method="dialog" id="formTrade">
+    <h3 id="dlgTitle">取引を追加</h3>
+    <div class="fields">
+      <label class="f">年<input id="f_year" inputmode="numeric" placeholder="2026" required></label>
+      <label class="f">約定日時(開始)<input id="f_open" placeholder="09.04 18:36" required></label>
+      <label class="f">約定日時(終了)<input id="f_close" placeholder="09.04 18:39" required></label>
+      <label class="f">チケット<input id="f_ticket" inputmode="numeric" required></label>
+      <label class="f">タイプ<select id="f_type"><option value="buy">buy（買）</option><option value="sell">sell（売）</option></select></label>
+      <label class="f">シンボル<input id="f_sym" list="symList" placeholder="usdjpy.cl" required></label>
+      <label class="f">ボリューム<input id="f_vol" inputmode="decimal" value="0.01" required></label>
+      <label class="f">価格(始値)<input id="f_op" inputmode="decimal" required></label>
+      <label class="f">価格(終値)<input id="f_cp" inputmode="decimal" required></label>
+      <label class="f">S/L<input id="f_sl" inputmode="decimal"></label>
+      <label class="f">T/P<input id="f_tp" inputmode="decimal"></label>
+      <label class="f">損益(円)<input id="f_pl" inputmode="numeric" required></label>
+    </div>
+    <datalist id="symList"></datalist>
+    <div class="err" id="tradeErr"></div>
+    <div class="dlg-actions">
+      <button type="button" id="btnDelTrade" class="danger" hidden>この取引を削除</button>
+      <span style="flex:1"></span>
+      <button type="button" id="btnCancelTrade">キャンセル</button>
+      <button type="submit" class="primary" id="btnSaveTrade">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgPaste">
+  <form method="dialog" id="formPaste">
+    <h3>Excelから貼り付け</h3>
+    <p class="hint" style="margin:0">取引履歴シートのA〜K列（約定日時(開始)・チケット・タイプ・ボリューム・シンボル・価格・S/L・T/P・約定日時(終了)・価格・損益）を行ごとコピーして貼り付けてください。先頭に年の列があっても読み込めます。見出し行や既にあるチケットは飛ばします。</p>
+    <label class="f" style="max-width:220px">年（日付に年が入っていない行に使います）<input id="p_year" inputmode="numeric"></label>
+    <textarea id="pasteBox" placeholder="09.07 10:12	44120001	buy	0.01	usdjpy.cl	156.210	156.050	156.400	09.07 10:40	156.300	90"></textarea>
+    <div class="hint" id="pastePreview"></div>
+    <div class="dlg-actions">
+      <button type="button" id="btnCancelPaste">キャンセル</button>
+      <button type="submit" class="primary" id="btnDoPaste" disabled>追加</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  let state = { version: 1, trades: [] };
+  let tab = 'hist', symFilter = 'all', verFilter = 'all';
+  let artifactNs = null, readOnly = false, saveTimer = null, saving = false, dirty = false, editingTicket = null;
+
+  // ---------- calculations ----------
+  const mult = sym => /jpy/i.test(String(sym).replace(/\.cl$/i,'').slice(3)) ? 100 : 10000;
+  const r1 = x => Math.round(x * 10) / 10;
+  const pips = t => r1((t.type === 'buy' ? t.cp - t.op : t.op - t.cp) * mult(t.sym));
+  const slW = t => t.sl == null ? null : r1(Math.abs(t.op - t.sl) * mult(t.sym));
+  const tpW = t => t.tp == null ? null : r1(Math.abs(t.tp - t.op) * mult(t.sym));
+  const rule = t => {
+    // ◎＝4H・1H・15Mすべて取引方向 / ○＝1H・15Mが取引方向 / ×＝それ以外（買＝上、売＝下）
+    if (!t.h1 || !t.m15) return '';
+    const d = t.type === 'buy' ? '上' : '下';
+    if (t.h1 === d && t.m15 === d) return t.h4 === d ? '◎' : '○';
+    return '×';
+  };
+  const ruleTag = r => r ? `<span class="rule ${r === '◎' ? 'oo' : r === '○' ? 'o' : 'x'}">${r}</span>` : '';
+  const isKeep = t => { const r = rule(t); return r === '◎' || r === '○'; };
+  const day = s => String(s).slice(0, 5);
+  const yr = t => Number(t.year) || 2026;
+  // 決済が年をまたいだ場合（12月に開始→1月に決済）は決済年を+1
+  const closeYear = t => yr(t) + (Number(String(t.close).slice(0, 2)) < Number(String(t.open).slice(0, 2)) ? 1 : 0);
+  const dayKey = t => closeYear(t) + '.' + day(t.close);
+  const sortKey = t => `${closeYear(t)}.${t.close}|${yr(t)}.${t.open}`;
+  const sorted = () => [...state.trades].sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+  const defaultYear = () => { const s = sorted(); return s.length ? closeYear(s[s.length - 1]) : new Date().getFullYear(); };
+  const fmtY = n => (n > 0 ? '+' : '') + Math.round(n).toLocaleString('ja-JP');
+  const fmtP = n => n == null || isNaN(n) ? '' : (n > 0 ? '+' : '') + n.toFixed(1);
+  const cls = n => n > 0 ? 'pos' : n < 0 ? 'neg' : '';
+  const price = (v, sym) => v == null ? '' : Number(v).toFixed(mult(sym) === 100 ? 3 : 5);
+
+  function stats(list) {
+    const wins = list.filter(t => t.pl > 0), losses = list.filter(t => t.pl < 0);
+    const avg = a => a.length ? a.reduce((s, t) => s + pips(t), 0) / a.length : null;
+    const aw = avg(wins), al = avg(losses);
+    return {
+      n: list.length, w: wins.length, l: losses.length,
+      rate: wins.length + losses.length ? wins.length / (wins.length + losses.length) : null,
+      pl: list.reduce((s, t) => s + t.pl, 0),
+      pips: r1(list.reduce((s, t) => s + pips(t), 0)),
+      aw, al, rr: aw != null && al ? aw / Math.abs(al) : null
+    };
+  }
+  const pct = x => x == null ? '—' : (x * 100).toFixed(1) + '%';
+
+  // ---------- render ----------
+  function renderKpis() {
+    const s = stats(state.trades);
+    const o = stats(state.trades.filter(isKeep));
+    $('#kpis').innerHTML = `
+      <div class="kpi"><b>合計損益</b><div class="v ${cls(s.pl)}">${fmtY(s.pl)}<small> 円</small></div></div>
+      <div class="kpi"><b>取引件数</b><div class="v">${s.n}<small> 件</small></div></div>
+      <div class="kpi"><b>勝率</b><div class="v">${pct(s.rate)}</div><small>${s.w}勝 ${s.l}敗</small></div>
+      <div class="kpi"><b>合計pips</b><div class="v ${cls(s.pips)}">${fmtP(s.pips)}</div></div>
+      <div class="kpi"><b>ルール通り(◎・○)の損益</b><div class="v ${cls(o.pl)}">${fmtY(o.pl)}<small> 円</small></div><small>${o.n}件・勝率${pct(o.rate)}</small></div>`;
+  }
+
+  function renderSymChips() {
+    const syms = [...new Set(state.trades.map(t => t.sym))].sort();
+    $('#symChips').innerHTML = ['all', ...syms].map(s =>
+      `<button type="button" class="chip" data-sym="${esc(s)}" aria-pressed="${symFilter === s}">${s === 'all' ? 'すべて' : esc(s.replace(/\.cl$/,''))}</button>`).join('');
+    $('#symList').innerHTML = syms.map(s => `<option value="${esc(s)}">`).join('');
+  }
+
+  function renderHist() {
+    const all = sorted();
+    const dayTot = {}, dayPips = {};
+    all.forEach(t => { const d = dayKey(t); dayTot[d] = (dayTot[d] || 0) + t.pl; dayPips[d] = r1((dayPips[d] || 0) + pips(t)); });
+    const list = all.filter(t => symFilter === 'all' || t.sym === symFilter);
+    const lastOfDay = {};
+    all.forEach(t => lastOfDay[dayKey(t)] = t.ticket);
+    const showDay = symFilter === 'all';
+    let html = `<thead><tr><th>年</th><th>約定日時(開始)</th><th>チケット</th><th>タイプ</th><th class="r">ボリューム</th><th>シンボル</th><th class="r">価格(始値)</th><th class="r">S/L</th><th class="r">T/P</th><th>約定日時(終了)</th><th class="r">価格(終値)</th><th class="r">損益</th><th class="r">pips</th>${showDay ? '<th class="r">日別決済合計</th><th class="r">日別pips</th>' : ''}</tr></thead><tbody>`;
+    for (const t of list) {
+      const dk = dayKey(t);
+      const end = showDay && lastOfDay[dk] === t.ticket;
+      const p = pips(t);
+      html += `<tr class="clickable${end ? ' dayend' : ''}" data-ticket="${esc(t.ticket)}">
+        <td class="num">${yr(t)}</td><td class="num">${esc(t.open)}</td><td class="num">${esc(t.ticket)}</td>
+        <td><span class="tag ${t.type}">${t.type}</span></td><td class="r num">${t.vol}</td><td>${esc(t.sym)}</td>
+        <td class="r num">${price(t.op, t.sym)}</td><td class="r num">${price(t.sl, t.sym)}</td><td class="r num">${price(t.tp, t.sym)}</td>
+        <td class="num">${esc(t.close)}</td><td class="r num">${price(t.cp, t.sym)}</td>
+        <td class="r num ${cls(t.pl)}">${fmtY(t.pl)}</td><td class="r num ${cls(p)}">${fmtP(p)}</td>
+        ${showDay ? `<td class="r num ${end ? cls(dayTot[dk]) : ''}">${end ? fmtY(dayTot[dk]) : ''}</td><td class="r num ${end ? cls(dayPips[dk]) : ''}">${end ? fmtP(dayPips[dk]) : ''}</td>` : ''}
+      </tr>`;
+    }
+    const s = stats(list);
+    html += `</tbody><tfoot><tr><td colspan="11" class="r"><b>合計損益 ／ 取引件数 ${s.n}</b></td><td class="r num ${cls(s.pl)}"><b>${fmtY(s.pl)}</b></td><td class="r num ${cls(s.pips)}"><b>${fmtP(s.pips)}</b></td>${showDay ? '<td></td><td></td>' : ''}</tr></tfoot>`;
+    $('#histTable').innerHTML = html;
+  }
+
+  const smaSel = (t, key) => {
+    const v = t[key] || '';
+    return `<select class="sma ${v === '上' ? 'up' : v === '下' ? 'dn' : ''}" id="s_${key}_${esc(t.ticket)}" data-ticket="${esc(t.ticket)}" data-key="${key}" aria-label="${key}">
+      <option value=""${v === '' ? ' selected' : ''}>—</option><option value="上"${v === '上' ? ' selected' : ''}>上</option><option value="下"${v === '下' ? ' selected' : ''}>下</option></select>`;
+  };
+  const waitSel = t => {
+    const v = t.wait || '';
+    return `<select class="sma" id="s_wait_${esc(t.ticket)}" data-ticket="${esc(t.ticket)}" data-key="wait" aria-label="15M待った">
+      <option value=""${v === '' ? ' selected' : ''}>—</option><option value="○"${v === '○' ? ' selected' : ''}>○</option><option value="×"${v === '×' ? ' selected' : ''}>×</option></select>`;
+  };
+
+  function renderVer() {
+    const all = sorted();
+    const counts = { all: all.length, oo: 0, o: 0, x: 0, none: 0, memo: 0 };
+    all.forEach(t => { const r = rule(t); if (r === '◎') counts.oo++; else if (r === '○') counts.o++; else if (r === '×') counts.x++; else counts.none++; if (t.memo) counts.memo++; });
+    const chips = [['all', 'すべて'], ['oo', '◎ 3本そろう'], ['o', '○ 1H・15Mそろう'], ['x', '× それ以外'], ['none', 'SMA未入力'], ['memo', 'メモあり']];
+    $('#verChips').innerHTML = chips.map(([k, l]) => `<button type="button" class="chip" data-ver="${k}" aria-pressed="${verFilter === k}">${l} <span class="num">${counts[k]}</span></button>`).join('');
+    $('#verProgress').textContent = `判定済み ${counts.oo + counts.o + counts.x} / ${counts.all} 件`;
+    const list = all.filter(t => {
+      const r = rule(t);
+      return verFilter === 'all' || (verFilter === 'oo' && r === '◎') || (verFilter === 'o' && r === '○') || (verFilter === 'x' && r === '×') || (verFilter === 'none' && !r) || (verFilter === 'memo' && t.memo);
+    });
+    let html = `<thead><tr><th>年</th><th>日付</th><th>時刻</th><th>通貨ペア</th><th class="c">方向</th><th class="c">4H 20SMA</th><th class="c">1H 20SMA</th><th class="c">15M 20SMA</th><th class="c">ルール合致</th><th class="r">損益(円)</th><th class="r">pips</th><th class="r">損切り幅</th><th class="r">利確幅</th><th class="c">15M待った</th><th>気づき・メモ</th></tr></thead><tbody>`;
+    for (const t of list) {
+      const r = rule(t), p = pips(t), sw = slW(t), tw = tpW(t);
+      html += `<tr>
+        <td class="num auto">${yr(t)}</td><td class="num auto">${esc(t.open.slice(0, 5))}</td><td class="num auto">${esc(t.open.slice(6))}</td>
+        <td class="auto">${esc(t.sym.replace(/\.cl$/,''))}</td><td class="c auto"><span class="tag ${t.type}">${t.type === 'buy' ? '買' : '売'}</span></td>
+        <td class="c manual">${smaSel(t, 'h4')}</td><td class="c manual">${smaSel(t, 'h1')}</td><td class="c manual">${smaSel(t, 'm15')}</td>
+        <td class="c" id="rule_${esc(t.ticket)}">${ruleTag(r)}</td>
+        <td class="r num auto ${cls(t.pl)}">${fmtY(t.pl)}</td><td class="r num auto ${cls(p)}">${fmtP(p)}</td>
+        <td class="r num auto">${sw == null ? '' : sw.toFixed(1)}</td><td class="r num auto">${tw == null ? '' : tw.toFixed(1)}</td>
+        <td class="c manual">${waitSel(t)}</td>
+        <td class="manual"><input class="memo" id="m_${esc(t.ticket)}" data-ticket="${esc(t.ticket)}" value="${esc(t.memo)}" placeholder="メモを入力" title="${esc(t.memo)}"></td>
+      </tr>`;
+    }
+    $('#verTable').innerHTML = html + '</tbody>';
+  }
+
+  function renderSum() {
+    const oo = stats(state.trades.filter(t => rule(t) === '◎'));
+    const o1 = stats(state.trades.filter(t => rule(t) === '○'));
+    const o = stats(state.trades.filter(isKeep));
+    const x = stats(state.trades.filter(t => rule(t) === '×'));
+    const a = stats(state.trades);
+    const row = (label, f, colored) => `<tr><th>${label}</th>${[oo, o1, x, a].map(s => { const v = f(s); return `<td class="r num ${colored ? cls(v.raw) : ''}">${v.txt}</td>`; }).join('')}</tr>`;
+    const v = (raw, txt) => ({ raw, txt });
+    $('#cmpTable').innerHTML = `<thead><tr><th></th><th class="r">◎ 3本そろう</th><th class="r">○ 1H・15M</th><th class="r">× それ以外</th><th class="r">全体</th></tr></thead><tbody>
+      ${row('取引数', s => v(0, s.n))}
+      ${row('勝ち数', s => v(0, s.w))}
+      ${row('負け数', s => v(0, s.l))}
+      ${row('勝率', s => v(0, pct(s.rate)))}
+      ${row('合計損益(円)', s => v(s.pl, fmtY(s.pl)), true)}
+      ${row('合計pips', s => v(s.pips, fmtP(s.pips)), true)}
+      ${row('平均利益pips', s => v(s.aw, s.aw == null ? '—' : fmtP(s.aw)), true)}
+      ${row('平均損失pips', s => v(s.al, s.al == null ? '—' : fmtP(s.al)), true)}
+      ${row('リスクリワード(利/損)', s => v(0, s.rr == null ? '—' : s.rr.toFixed(2)))}
+    </tbody>`;
+    let msg;
+    if (!o.n || !x.n) msg = '◎・○と×の両方に取引が入ると比較できます。';
+    else if (o.pl > x.pl) msg = `ルール通り（◎＋○）の取引は <b class="${cls(o.pl)}">${fmtY(o.pl)}円</b>、×は <b class="${cls(x.pl)}">${fmtY(x.pl)}円</b>。手法どおりの取引のほうが成績が良い結果です。`;
+    else msg = `×の取引（${fmtY(x.pl)}円）がルール通り（◎＋○、${fmtY(o.pl)}円）を上回っています。ルールの見直しを検討する材料になります。`;
+    if (oo.n && o1.n) msg += ` ◎は1件あたり ${fmtY(oo.pl / oo.n)}円、○は ${fmtY(o1.pl / o1.n)}円。`;
+    if (o.rr != null && o.rr < 1) msg += ` ◎＋○のリスクリワードは ${o.rr.toFixed(2)} で、平均損失が平均利益より大きい状態です。`;
+    $('#verdict').innerHTML = msg;
+
+    // symbols
+    const syms = [...new Set(state.trades.map(t => t.sym))];
+    const rows = syms.map(s => ({ s, st: stats(state.trades.filter(t => t.sym === s)) })).sort((p, q) => q.st.n - p.st.n);
+    $('#symTable').innerHTML = `<thead><tr><th>通貨ペア</th><th class="r">取引数</th><th class="r">勝率</th><th class="r">損益(円)</th><th class="r">pips</th></tr></thead><tbody>` +
+      rows.map(({ s, st }) => `<tr><th>${esc(s.replace(/\.cl$/,''))}</th><td class="r num">${st.n}</td><td class="r num">${pct(st.rate)}</td><td class="r num ${cls(st.pl)}">${fmtY(st.pl)}</td><td class="r num ${cls(st.pips)}">${fmtP(st.pips)}</td></tr>`).join('') + '</tbody>';
+
+    renderChart();
+  }
+
+  function renderChart() {
+    const days = {};
+    sorted().forEach(t => { const d = dayKey(t); days[d] = (days[d] || 0) + t.pl; });
+    const keys = Object.keys(days);
+    if (!keys.length) { $('#dayChart').innerHTML = '<p class="hint">取引がありません</p>'; return; }
+    let cum = 0; const cums = keys.map(k => cum += days[k]);
+    const vals = [...keys.map(k => days[k]), ...cums, 0];
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    const niceStep = (range) => { const raw = range / 4; const p = Math.pow(10, Math.floor(Math.log10(raw))); return [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= raw); };
+    const step = niceStep(hi - lo || 1);
+    lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+    const W = 560, H = 270, L = 44, R = 12, T = 12, B = 40;
+    const iw = W - L - R, ih = H - T - B;
+    const y = v => T + (hi - v) / (hi - lo) * ih;
+    const bw = iw / keys.length;
+    let g = '';
+    for (let v = lo; v <= hi + 1e-9; v += step) g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="${v === 0 ? 1.4 : 0.8}"/><text x="${L - 6}" y="${y(v) + 3}" text-anchor="end">${v}</text>`;
+    const labelEvery = Math.ceil(keys.length / 8);
+    keys.forEach((k, i) => {
+      const v = days[k], x = L + i * bw + bw * 0.18, w = bw * 0.64;
+      const y0 = y(Math.max(v, 0)), h = Math.max(1, Math.abs(y(v) - y(0)));
+      g += `<rect x="${x}" y="${y0}" width="${w}" height="${h}" rx="2" fill="${v >= 0 ? 'var(--profit)' : 'var(--loss)'}" opacity=".85"><title>${k}  ${fmtY(v)}円（累計 ${fmtY(cums[i])}円）</title></rect>`;
+      const prevY = i ? keys[i - 1].slice(0, 4) : '';
+      if (i % labelEvery === 0) g += `<text x="${L + i * bw + bw / 2}" y="${H - B + 16}" text-anchor="middle">${k.slice(5)}</text>`;
+      if (i === 0 || k.slice(0, 4) !== prevY) g += `<text x="${L + i * bw + bw / 2}" y="${H - B + 29}" text-anchor="middle">${k.slice(0, 4)}年</text>`;
+    });
+    const pts = cums.map((c, i) => `${L + i * bw + bw / 2},${y(c)}`).join(' ');
+    g += `<polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2"/>`;
+    const lx = L + (keys.length - 1) * bw + bw / 2, ly = y(cums[cums.length - 1]);
+    g += `<circle cx="${lx}" cy="${ly}" r="4" fill="var(--accent)"/><text x="${lx - 6}" y="${ly - 8}" text-anchor="end" style="fill:var(--accent);font-weight:500">累計 ${fmtY(cums[cums.length - 1])}</text>`;
+    $('#dayChart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="日別損益と累計">${g}</svg>`;
+  }
+
+  function renderAll() {
+    renderKpis(); renderSymChips();
+    if (tab === 'hist') renderHist();
+    if (tab === 'ver') renderVer();
+    if (tab === 'sum') renderSum();
+    if (tab === 'period') renderPeriod();
+  }
+
+  // ---------- 期日指定集計 ----------
+  const PC_DEFAULT = [['2026-08-10', '2026-09-06'], ['2026-09-07', '2026-09-18'], ['2026-09-21', '2026-09-25'], ['', ''], ['', '']];
+  let pc = { n: 3, periods: PC_DEFAULT.map(p => [...p]) };
+  try { const s = JSON.parse(localStorage.getItem('tn_pc') || 'null'); if (s && s.periods) pc = s; } catch (e) {}
+  const savePc = () => { try { localStorage.setItem('tn_pc', JSON.stringify(pc)); } catch (e) {} };
+  const isoClose = t => `${closeYear(t)}-${String(t.close).slice(0, 2)}-${String(t.close).slice(3, 5)}`;
+  const inPeriod = (t, [s, e]) => { const d = isoClose(t); return (!s || d >= s) && (!e || d <= e); };
+  let pcBlob = null, pcUrl = null, pcTimer = null;
+
+  function renderPeriodInputs() {
+    $('#pc_n').value = String(pc.n);
+    const box = $('#pc_periods');
+    let html = '';
+    for (let i = 0; i < pc.n; i++) {
+      const [s, e] = pc.periods[i] || ['', ''];
+      html += `<div class="pc-period"><b>${i + 1}列目</b>
+        <div class="dates"><input type="date" id="pc_s${i}" data-i="${i}" data-k="0" value="${esc(s)}" aria-label="${i + 1}列目の開始日"><span>〜</span><input type="date" id="pc_e${i}" data-i="${i}" data-k="1" value="${esc(e)}" aria-label="${i + 1}列目の終了日"></div>
+        <span class="cnt" id="pc_c${i}"></span></div>`;
+    }
+    box.innerHTML = html;
+  }
+  function renderPeriod() {
+    const syms = [...new Set(state.trades.map(t => t.sym))].sort();
+    const cur = $('#pc_sym').value || 'all';
+    $('#pc_sym').innerHTML = '<option value="all">すべて</option>' + syms.map(s => `<option value="${esc(s)}">${esc(s.replace(/\.cl$/, ''))}</option>`).join('');
+    $('#pc_sym').value = syms.includes(cur) ? cur : 'all';
+    if (!$('#pc_s0')) renderPeriodInputs();
+    schedulePeriodImage(0);
+  }
+  function schedulePeriodImage(ms = 200) { clearTimeout(pcTimer); pcTimer = setTimeout(drawPeriodImage, ms); }
+
+  function periodStats(list, big) {
+    const n = list.length, wins = list.filter(t => t.pl > 0).length;
+    const st = stats(list);
+    const judged = list.filter(t => rule(t));
+    const oo = list.filter(t => rule(t) === '◎'), o = list.filter(t => rule(t) === '○'), x = list.filter(t => rule(t) === '×');
+    const grp = g => ({ n: g.length, pl: g.reduce((s, t) => s + t.pl, 0), rate: g.length ? g.filter(t => t.pl > 0).length / g.length : null });
+    const bigN = list.filter(t => t.pl <= big).length;
+    const minPl = n ? Math.min(...list.map(t => t.pl)) : null;
+    return { n, pl: st.pl, avg: n ? st.pl / n : null, rate: n ? wins / n : null, rr: st.rr,
+      comp: judged.length ? (oo.length + o.length) / judged.length : null, judged: judged.length,
+      oo: grp(oo), o: grp(o), x: grp(x), bigN, bigRate: n ? bigN / n : null, maxLoss: minPl != null && minPl < 0 ? minPl : null };
+  }
+
+  const shortDate = (iso, withYear) => { if (!iso) return ''; const [y, m, d] = iso.split('-').map(Number); return (withYear ? y + '/' : '') + m + '/' + d; };
+
+  async function drawPeriodImage() {
+    const big = Number(String($('#pc_big').value).replace(/[^\d.-]/g, '')) || -150;
+    const bigThr = big > 0 ? -big : big;
+    const sym = $('#pc_sym').value || 'all';
+    const base = state.trades.filter(t => sym === 'all' || t.sym === sym);
+    const cols = [];
+    for (let i = 0; i < pc.n; i++) {
+      const p = pc.periods[i] || ['', ''];
+      const list = (p[0] || p[1]) ? base.filter(t => inPeriod(t, p)) : [];
+      cols.push({ p, list, s: periodStats(list, bigThr) });
+      const c = $('#pc_c' + i); if (c) c.textContent = (p[0] || p[1]) ? `${list.length}件` : '日付を選んでください';
+    }
+    const years = new Set(cols.flatMap(c => c.p.filter(Boolean).map(d => d.slice(0, 4))));
+    const withYear = years.size > 1;
+    const coloring = $('#pc_color').checked;
+
+    // 指標の定義: better = 'up' | 'down', severe(cur, prevAvg) で「課題」
+    const fmtYen = v => v == null ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(Math.round(v)).toLocaleString('ja-JP') + '円';
+    const fmtPct = v => v == null ? '—' : Math.round(v * 100) + '%';
+    const grpSub = g => g.n === 0 ? '' : g.n === 1 ? '1件のみ' : `勝率${fmtPct(g.rate)}`;
+    const rows = [
+      { label: '損益', eps: 0.5, val: s => s.n ? fmtYen(s.pl) : '—', cmp: s => s.avg, dir: 'up', severe: (c, p) => c < 0 && p > 0 },
+      { label: '勝率', val: s => fmtPct(s.rate), cmp: s => s.rate, dir: 'up', severe: (c, p) => p - c >= 0.3 },
+      { label: 'リスクリワード', val: s => s.rr == null ? '—' : s.rr.toFixed(2), sub: s => s.rr != null && s.rr >= 1 ? '損小利大に' : '', cmp: s => s.rr, dir: 'up' },
+      { label: 'ルール順守率', note: '◎＋○の割合', val: s => fmtPct(s.comp), cmp: s => s.comp, dir: 'up', severe: (c, p) => p - c >= 0.3 },
+      { label: '◎の損益', eps: 0.5, note: '4H・1H・15Mそろう', val: s => s.oo.n ? fmtYen(s.oo.pl) : '—', sub: s => grpSub(s.oo), cmp: s => s.oo.n ? s.oo.pl / s.oo.n : null, dir: 'up' },
+      { label: '○の損益', eps: 0.5, note: '1H・15Mそろう', val: s => s.o.n ? fmtYen(s.o.pl) : '—', sub: s => grpSub(s.o), cmp: s => s.o.n ? s.o.pl / s.o.n : null, dir: 'up' },
+      { label: '×の損益', eps: 0.5, note: 'それ以外', val: s => s.x.n ? fmtYen(s.x.pl) : '—', sub: s => grpSub(s.x), cmp: s => s.x.n ? s.x.pl / s.x.n : null, dir: 'down' },
+      { label: '大負けの頻度', note: `${fmtYen(bigThr)}以下`, val: s => fmtPct(s.bigRate), sub: s => s.bigN === 1 ? '1件のみ' : s.bigN > 1 ? `${s.bigN}件` : '', cmp: s => s.bigRate, dir: 'down', severe: (c, p) => c - p >= 0.1 },
+      { label: '最大の負け', eps: 0.5, val: s => s.n ? (s.maxLoss == null ? '負けなし' : fmtYen(s.maxLoss)) : '—', cmp: s => s.n ? (s.maxLoss ?? 0) : null, dir: 'up' },
+    ];
+    const judge = (row, ci) => {
+      if (!coloring || ci === 0) return null;
+      const cur = cols[ci].s; if (!cur.n) return null;
+      const c = row.cmp(cur); if (c == null) return null;
+      const prev = cols.slice(0, ci).map(x => x.s.n ? row.cmp(x.s) : null).filter(v => v != null);
+      if (!prev.length) return null;
+      const p = prev.reduce((a, b) => a + b, 0) / prev.length;
+      const eps = row.eps ?? 0.005;
+      if (Math.abs(c - p) < eps) return null;
+      const better = row.dir === 'up' ? c > p : c < p;
+      if (better) return 'good';
+      if (row.severe && cur.n >= 5 && row.severe(c, p)) return 'bad';
+      return 'warn';
+    };
+
+    // ---- canvas ----
+    try { await Promise.all([document.fonts.load('400 16px "Zen Kaku Gothic New"'), document.fonts.load('700 16px "Zen Kaku Gothic New"')]); } catch (e) {}
+    const FONT = '"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif';
+    const C = { bg: '#FFFFFF', ink: '#1F2328', sub: '#8A8F98', line: '#ECEDEF', head: '#F0ECE6', headInk: '#4A4640',
+      good: ['#E3F4EE', '#1D6B4F'], warn: ['#FBEEDA', '#8A5A00'], bad: ['#FCE8E8', '#B3261E'] };
+    const n = pc.n, W = 1000, PAD = 40, GAP = 14;
+    const labelW = n <= 3 ? 250 : n === 4 ? 200 : 170;
+    const colW = (W - PAD * 2 - labelW - GAP * (n - 1)) / n;
+    const colX = i => PAD + labelW + i * (colW + GAP);
+    const ctx0 = document.createElement('canvas').getContext('2d');
+    const wrap = (text, font, maxW) => {
+      ctx0.font = font; const out = []; let line = '';
+      for (const ch of text) { if (ctx0.measureText(line + ch).width > maxW && line) { out.push(line); line = ch; } else line += ch; }
+      if (line) out.push(line); return out;
+    };
+    const notes = [];
+    const small = cols.map((c, i) => ({ i, n: c.s.n })).filter(c => c.n > 0 && c.n < 20);
+    if (small.length) notes.push(`※ ${small.map(c => `${c.i + 1}列目は${c.n}件`).join('、')}のみのため、勝率・順守率・◎○×別の数字はまだ参考値。`);
+    const noteText = $('#pc_note').value.trim();
+    if (noteText) notes.push(noteText);
+    const noteLines = notes.flatMap((t, k) => wrap(t, `13px ${FONT}`, W - PAD * 2 - 16).map((l, j) => (j > 0 ? '　' : '') + l));
+
+    const rowH = rows.map(r => (r.note || cols.some(c => r.sub && r.sub(c.s))) ? 74 : 56);
+    const TITLE_H = 96, HEAD_H = 70;
+    const H = TITLE_H + HEAD_H + 10 + rowH.reduce((a, b) => a + b, 0) + 24 + (coloring ? 34 : 0) + (noteLines.length ? 12 + noteLines.length * 22 : 0) + PAD - 10;
+    const cv = document.createElement('canvas');
+    const DPR = 2; cv.width = W * DPR; cv.height = H * DPR;
+    const g = cv.getContext('2d'); g.scale(DPR, DPR);
+    g.fillStyle = C.bg; g.fillRect(0, 0, W, H);
+    const text = (s, x, y, size, color, weight = 400, align = 'left') => { g.font = `${weight} ${size}px ${FONT}`; g.fillStyle = color; g.textAlign = align; g.textBaseline = 'middle'; g.fillText(s, x, y); };
+    const box = (x, y, w, h, fill) => { g.fillStyle = fill; g.beginPath(); g.roundRect(x, y, w, h, 6); g.fill(); };
+
+    text($('#pc_title').value || '期日指定集計', PAD, 48, 22, C.ink, 700);
+    const subT = [$('#pc_sub').value.trim(), sym !== 'all' ? sym.replace(/\.cl$/, '').toUpperCase() : ''].filter(Boolean).join(' / ');
+    if (subT) text(subT, PAD, 78, 13, C.sub);
+
+    let y = TITLE_H;
+    cols.forEach((c, i) => {
+      const last = i === n - 1 && coloring && n > 1;
+      box(colX(i), y, colW, HEAD_H - 12, last ? C.good[0] : C.head);
+      const [s, e] = c.p;
+      const label = s || e ? `${shortDate(s, withYear)}-${shortDate(e, withYear && s.slice(0, 4) !== e.slice(0, 4))}` : '未設定';
+      text(label, colX(i) + colW / 2, y + 20, n >= 5 ? 14 : 16, last ? C.good[1] : C.headInk, 400, 'center');
+      text(`${c.s.n}件`, colX(i) + colW / 2, y + 42, 12, last ? C.good[1] : C.sub, 400, 'center');
+    });
+    y += HEAD_H;
+    g.strokeStyle = C.line; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(PAD, y - 2); g.lineTo(W - PAD, y - 2); g.stroke();
+    rows.forEach((r, ri) => {
+      const h = rowH[ri];
+      const mid = y + h / 2;
+      if (r.note) { text(r.label, PAD, mid - 11, 15, C.ink, 700); text(r.note, PAD, mid + 13, 12, C.sub); }
+      else text(r.label, PAD, mid, 15, C.ink, 700);
+      cols.forEach((c, ci) => {
+        const j = judge(r, ci);
+        const [bg, fg] = j ? C[j] : [null, C.ink];
+        if (bg) box(colX(ci), y + 5, colW, h - 10, bg);
+        const sub = r.sub ? r.sub(c.s) : '';
+        const vs = n >= 5 ? 16 : 18;
+        if (sub) { text(r.val(c.s), colX(ci) + colW / 2, mid - 10, vs, fg, j ? 500 : 400, 'center'); text(sub, colX(ci) + colW / 2, mid + 14, 12, j ? fg : C.sub, 400, 'center'); }
+        else text(r.val(c.s), colX(ci) + colW / 2, mid, vs, fg, j ? 500 : 400, 'center');
+      });
+      y += h;
+      g.beginPath(); g.moveTo(PAD, y); g.lineTo(W - PAD, y); g.stroke();
+    });
+    y += 24;
+    if (coloring) {
+      [['good', '改善した'], ['warn', '注意して見る'], ['bad', '課題']].forEach(([k, l], i) => {
+        const x = PAD + i * 140; box(x, y, 14, 14, C[k][0]); text(l, x + 22, y + 7, 13, '#555B63');
+      });
+      y += 34;
+    }
+    if (noteLines.length) { y += 4; noteLines.forEach(l => { text(l, PAD, y + 8, 13, '#6B7079'); y += 22; }); }
+
+    cv.toBlob(b => {
+      if (!b) return;
+      pcBlob = b; if (pcUrl) URL.revokeObjectURL(pcUrl);
+      pcUrl = URL.createObjectURL(b); $('#pc_img').src = pcUrl;
+    }, 'image/png');
+  }
+
+  $('#pc_n').addEventListener('change', e => { pc.n = Number(e.target.value); while (pc.periods.length < 5) pc.periods.push(['', '']); savePc(); renderPeriodInputs(); schedulePeriodImage(0); });
+  $('#pc_periods').addEventListener('input', e => {
+    const el = e.target.closest('input[data-i]'); if (!el) return;
+    pc.periods[+el.dataset.i][+el.dataset.k] = el.value; savePc(); schedulePeriodImage();
+  });
+  ['#pc_sym', '#pc_big', '#pc_color', '#pc_title', '#pc_sub', '#pc_note'].forEach(id => $(id).addEventListener('input', () => schedulePeriodImage()));
+  $('#pc_save').addEventListener('click', async () => {
+    const dl = await window.claude?.use?.('downloads').catch(() => null);
+    if (!dl || !pcBlob) { setStatus('err', 'この画面では画像を保存できません'); return; }
+    const name = `期日指定集計_${pc.periods.slice(0, pc.n).map(p => (p[0] || '').replace(/-/g, '')).filter(Boolean).join('_') || '比較'}.png`;
+    try { await dl.save({ filename: name, data: pcBlob }); }
+    catch (e) { if (e?.code !== 'declined') setStatus('err', '画像を保存できませんでした'); }
+  });
+
+  // ---------- saving ----------
+  function setStatus(kind, text) {
+    const el = $('#status'); el.className = 'status ' + (kind || ''); el.querySelector('span').textContent = text;
+  }
+  function changed() {
+    dirty = true;
+    if (readOnly) { setStatus('err', '閲覧のみ・変更は保存されません'); return; }
+    setStatus('busy', '未保存の変更');
+    clearTimeout(saveTimer); saveTimer = setTimeout(save, 2500);
+  }
+  async function save() {
+    if (!dirty || saving || readOnly) return;
+    if (!artifactNs) { setStatus('err', 'この画面では保存できません'); return; }
+    saving = true; dirty = false; setStatus('busy', '保存中…');
+    const json = JSON.stringify(state);
+    try { sessionStorage.setItem('tn_pending', json); } catch (e) {}
+    try {
+      await artifactNs.publish({ 'data.json': { content: json, contentType: 'application/json' } });
+      try { sessionStorage.removeItem('tn_pending'); } catch (e) {}
+      setStatus('ok', '保存しました');
+    } catch (e) {
+      const c = e && e.code;
+      if (c === 'conflict') setStatus('busy', '他の画面の変更を読み込み中…');
+      else if (['not_writer', 'not_granted', 'consent_required', 'not_declared', 'capability_disabled', 'capability_removed'].includes(c)) { readOnly = true; setStatus('err', '閲覧のみ・変更は保存されません'); }
+      else if (c === 'rate_limited') { dirty = true; setStatus('busy', '少し待って保存します'); saveTimer = setTimeout(save, 8000); }
+      else { dirty = true; setStatus('err', '保存に失敗しました・再試行します'); saveTimer = setTimeout(save, 4000 + Math.random() * 2000); }
+    } finally { saving = false; if (dirty && !readOnly && !saveTimer) changed(); }
+  }
+
+  // ---------- events ----------
+  document.querySelector('nav.tabs').addEventListener('click', e => {
+    const b = e.target.closest('[data-tab]'); if (!b) return;
+    tab = b.dataset.tab;
+    document.querySelectorAll('nav.tabs button').forEach(x => x.setAttribute('aria-selected', x === b));
+    ['hist', 'ver', 'sum', 'period'].forEach(k => $('#pane-' + k).hidden = k !== tab);
+    try { localStorage.setItem('tn_tab', tab); } catch (e) {}
+    renderAll();
+  });
+  $('#symChips').addEventListener('click', e => { const b = e.target.closest('[data-sym]'); if (!b) return; symFilter = b.dataset.sym; renderSymChips(); renderHist(); });
+  $('#verChips').addEventListener('click', e => { const b = e.target.closest('[data-ver]'); if (!b) return; verFilter = b.dataset.ver; renderVer(); });
+
+  const find = tk => state.trades.find(t => t.ticket === tk);
+  $('#verTable').addEventListener('change', e => {
+    const s = e.target.closest('select.sma'); if (!s) return;
+    const t = find(s.dataset.ticket); if (!t) return;
+    t[s.dataset.key] = s.value;
+    s.classList.toggle('up', s.value === '上'); s.classList.toggle('dn', s.value === '下');
+    const r = rule(t);
+    $('#rule_' + CSS.escape(t.ticket)).innerHTML = ruleTag(r);
+    renderKpis(); changed();
+  });
+  $('#verTable').addEventListener('input', e => {
+    const i = e.target.closest('input.memo'); if (!i) return;
+    const t = find(i.dataset.ticket); if (!t) return;
+    t.memo = i.value; i.title = i.value; changed();
+  });
+
+  // trade dialog
+  const fields = ['year', 'open', 'close', 'ticket', 'type', 'sym', 'vol', 'op', 'cp', 'sl', 'tp', 'pl'];
+  function openTrade(t) {
+    editingTicket = t ? t.ticket : null;
+    $('#dlgTitle').textContent = t ? '取引を編集' : '取引を追加';
+    $('#btnDelTrade').hidden = !t; $('#btnDelTrade').textContent = 'この取引を削除'; $('#btnDelTrade').dataset.armed = '';
+    $('#tradeErr').textContent = '';
+    const last = sorted().at(-1);
+    fields.forEach(f => { const el = $('#f_' + f); el.value = f === 'year' ? (t ? yr(t) : defaultYear()) : t ? (t[f] ?? '') : (f === 'vol' ? '0.01' : f === 'type' ? 'buy' : f === 'sym' ? (last ? last.sym : 'usdjpy.cl') : ''); });
+    $('#dlgTrade').showModal();
+  }
+  const normDate = s => {
+    s = String(s || '').trim();
+    let m = s.match(/^(\d{4})[.\/-](\d{1,2})[.\/-](\d{1,2})[ T]+(\d{1,2}):(\d{2})/);
+    if (m) return `${m[2].padStart(2, '0')}.${m[3].padStart(2, '0')} ${m[4].padStart(2, '0')}:${m[5]}`;
+    m = s.match(/^(\d{4})年\s*(\d{1,2})月(\d{1,2})日\s*(\d{1,2}):(\d{2})/);
+    if (m) return `${m[2].padStart(2, '0')}.${m[3].padStart(2, '0')} ${m[4].padStart(2, '0')}:${m[5]}`;
+    m = s.match(/^(\d{1,2})[.\/-](\d{1,2})[ T]+(\d{1,2}):(\d{2})/);
+    if (m) return `${m[1].padStart(2, '0')}.${m[2].padStart(2, '0')} ${m[3].padStart(2, '0')}:${m[4]}`;
+    return null;
+  };
+  const num = s => { const v = String(s ?? '').replace(/[,\s円]/g, '').replace(/[−–]/g, '-'); return v === '' ? null : Number(v); };
+  $('#formTrade').addEventListener('submit', e => {
+    e.preventDefault();
+    const g = f => $('#f_' + f).value;
+    const y = Number(g('year'));
+    if (!Number.isInteger(y) || y < 2000 || y > 2100) { $('#tradeErr').textContent = '年は「2026」のように4桁で入力してください。'; return; }
+    const t = {
+      year: y, open: normDate(g('open')), close: normDate(g('close')), ticket: g('ticket').trim(), type: g('type'),
+      sym: g('sym').trim().toLowerCase(), vol: num(g('vol')), op: num(g('op')), cp: num(g('cp')), sl: num(g('sl')), tp: num(g('tp')), pl: num(g('pl'))
+    };
+    const err = !t.open || !t.close ? '日時は「09.04 18:36」の形で入力してください。'
+      : !t.ticket ? 'チケット番号を入力してください。'
+      : (editingTicket !== t.ticket && find(t.ticket)) ? 'このチケット番号は既に登録されています。'
+      : [t.vol, t.op, t.cp, t.pl].some(v => v == null || isNaN(v)) ? 'ボリューム・価格・損益は数字で入力してください。'
+      : [t.sl, t.tp].some(v => v != null && isNaN(v)) ? 'S/L・T/Pは数字か空欄にしてください。' : '';
+    if (err) { $('#tradeErr').textContent = err; return; }
+    if (editingTicket) {
+      const old = find(editingTicket); Object.assign(old, t);
+    } else state.trades.push({ ...t, h4: '', h1: '', m15: '', wait: '', memo: '' });
+    $('#dlgTrade').close(); renderAll(); changed();
+  });
+  $('#btnCancelTrade').addEventListener('click', () => $('#dlgTrade').close());
+  $('#btnDelTrade').addEventListener('click', e => {
+    const b = e.currentTarget;
+    if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'もう一度押すと削除します'; return; }
+    state.trades = state.trades.filter(t => t.ticket !== editingTicket);
+    $('#dlgTrade').close(); renderAll(); changed();
+  });
+  $('#btnAdd').addEventListener('click', () => openTrade(null));
+  $('#histTable').addEventListener('click', e => { const tr = e.target.closest('tr[data-ticket]'); if (tr) openTrade(find(tr.dataset.ticket)); });
+
+  // paste
+  let parsed = [];
+  const pasteYear = () => { const v = Number($('#p_year').value); return Number.isInteger(v) && v >= 2000 && v <= 2100 ? v : defaultYear(); };
+  function parsePaste(text) {
+    const out = [], skip = { dup: 0, bad: 0 };
+    const seen = new Set(state.trades.map(t => t.ticket));
+    for (const line of text.split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      let c = (line.includes('\t') ? line.split('\t') : line.split(',')).map(s => s.trim());
+      let y = null;
+      if (/^\d{4}$/.test(c[0])) { y = Number(c[0]); c = c.slice(1); }          // 先頭が「年」列
+      if (c.length < 11) { skip.bad++; continue; }
+      const ym = c[0].match(/^(\d{4})/); if (ym) y = Number(ym[1]);             // 「2026.09.04 18:36」形式
+      const t = { year: y || pasteYear(), open: normDate(c[0]), ticket: c[1], type: c[2].toLowerCase().startsWith('s') || c[2].includes('売') ? 'sell' : 'buy',
+        vol: num(c[3]), sym: c[4].toLowerCase(), op: num(c[5]), sl: num(c[6]) || null, tp: num(c[7]) || null, close: normDate(c[8]), cp: num(c[9]), pl: num(c[10]),
+        h4: '', h1: '', m15: '', wait: '', memo: '' };
+      if (!t.open || !t.close || !/^\d+$/.test(t.ticket) || [t.op, t.cp, t.pl, t.vol].some(v => v == null || isNaN(v))) { skip.bad++; continue; }
+      if (seen.has(t.ticket)) { skip.dup++; continue; }
+      seen.add(t.ticket); out.push(t);
+    }
+    return { out, skip };
+  }
+  $('#p_year').addEventListener('input', () => $('#pasteBox').dispatchEvent(new Event('input')));
+  $('#btnPaste').addEventListener('click', () => { $('#p_year').value = defaultYear(); $('#pasteBox').value = ''; $('#pastePreview').textContent = ''; $('#btnDoPaste').disabled = true; $('#dlgPaste').showModal(); });
+  $('#pasteBox').addEventListener('input', () => {
+    const { out, skip } = parsePaste($('#pasteBox').value); parsed = out;
+    const pl = out.reduce((s, t) => s + t.pl, 0);
+    $('#pastePreview').innerHTML = out.length || skip.dup || skip.bad
+      ? `追加できる取引 <b>${out.length}件</b>（損益 ${fmtY(pl)}円）${skip.dup ? `・登録済みで飛ばす ${skip.dup}件` : ''}${skip.bad ? `・読めない行 ${skip.bad}件` : ''}` : '';
+    $('#btnDoPaste').disabled = !out.length;
+  });
+  $('#formPaste').addEventListener('submit', e => {
+    e.preventDefault(); if (!parsed.length) return;
+    state.trades.push(...parsed); parsed = []; $('#dlgPaste').close(); renderAll(); changed();
+  });
+  $('#btnCancelPaste').addEventListener('click', () => $('#dlgPaste').close());
+
+  // export
+  $('#btnExport').addEventListener('click', async () => {
+    const dl = await window.claude?.use?.('downloads').catch(() => null);
+    if (!dl || typeof XLSX === 'undefined') { setStatus('err', 'この画面では書き出しできません'); return; }
+    const all = sorted(), dayTot = {}, lastOfDay = {};
+    all.forEach(t => { const d = dayKey(t); dayTot[d] = (dayTot[d] || 0) + t.pl; lastOfDay[d] = t.ticket; });
+    const h = [['年', '約定日時(開始)', 'チケット', 'タイプ', 'ボリューム', 'シンボル', '価格(始値)', 'S/L', 'T/P', '約定日時(終了)', '価格(終値)', '損益', '日別決済合計', 'pips']];
+    all.forEach(t => h.push([yr(t), t.open, Number(t.ticket), t.type, t.vol, t.sym, t.op, t.sl ?? '', t.tp ?? '', t.close, t.cp, t.pl, lastOfDay[dayKey(t)] === t.ticket ? dayTot[dayKey(t)] : '', pips(t)]));
+    const s = stats(all);
+    h.push([], ['', '', '', '', '', '', '', '', '', '', '合計損益', s.pl], ['', '', '', '', '', '', '', '', '', '', '取引件数', s.n]);
+    const v = [['年', '日付', '時刻', '通貨ペア', '方向', '4H 20SMA', '1H 20SMA', '15M 20SMA', 'ルール合致', '損益(円)', 'pips', '損切り幅(pips)', '利確幅(pips)', '15M待った', '気づき・メモ']];
+    all.forEach(t => v.push([yr(t), t.open.slice(0, 5), t.open.slice(6), t.sym.replace(/\.cl$/, ''), t.type === 'buy' ? '買' : '売', t.h4, t.h1, t.m15, rule(t), t.pl, pips(t), slW(t) ?? '', tpW(t) ?? '', t.wait, t.memo]));
+    const oo = stats(all.filter(t => rule(t) === '◎')), o = stats(all.filter(t => rule(t) === '○')), x = stats(all.filter(t => rule(t) === '×'));
+    const rr = n => n == null ? '' : Math.round(n * 1000) / 1000;
+    const G = [oo, o, x, s];
+    const line = (label, f) => [label, ...G.map(f)];
+    const sm = [['ルール判定 × 成績の比較（◎＝4H・1H・15Mそろう、○＝1H・15Mそろう、×＝それ以外）'], ['', '◎', '○', '×', '全体'],
+      line('取引数', g => g.n), line('勝ち数', g => g.w), line('負け数', g => g.l), line('勝率', g => rr(g.rate)),
+      line('合計損益(円)', g => g.pl), line('合計pips', g => g.pips), line('平均利益pips', g => rr(g.aw)),
+      line('平均損失pips', g => rr(g.al)), line('リスクリワード(利/損)', g => rr(g.rr))];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(h), '取引履歴');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(v), '検証');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sm), '集計');
+    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    try { await dl.save({ filename: '取引履歴.xlsx', data: new Blob([buf]) }); }
+    catch (e) { if (e?.code !== 'declined') setStatus('err', '書き出しできませんでした'); }
+  });
+
+  // pending restore
+  $('#btnRestore').addEventListener('click', () => {
+    try { state = JSON.parse(sessionStorage.getItem('tn_pending')); sessionStorage.removeItem('tn_pending'); } catch (e) {}
+    $('#banner').hidden = true; renderAll(); changed();
+  });
+  $('#btnDiscard').addEventListener('click', () => { try { sessionStorage.removeItem('tn_pending'); } catch (e) {} $('#banner').hidden = true; });
+
+  // ---------- boot ----------
+  try { const t = localStorage.getItem('tn_tab'); if (t && t !== 'hist') document.querySelector(`[data-tab="${t}"]`)?.click(); } catch (e) {}
+  fetch('data.json', { cache: 'no-store' }).then(r => r.json()).then(d => {
+    state = d && Array.isArray(d.trades) ? d : { version: 1, trades: [] };
+    renderAll(); setStatus('ok', '保存済み');
+    try { if (sessionStorage.getItem('tn_pending')) $('#banner').hidden = false; } catch (e) {}
+  }).catch(() => { renderAll(); setStatus('err', 'データを読み込めませんでした'); });
+  window.claude?.use?.('artifact').then(ns => { artifactNs = ns; if (!ns) { readOnly = true; } }).catch(() => { readOnly = true; });
+  renderAll();
+})();
+</script>
+
+</body></html>
